@@ -19,7 +19,10 @@
   Notes:
   - The buttons use INPUT_PULLUP, so a button press connects its pin to GND.
   - This sketch expects the display at I2C address 0x3C.
-  - The Adafruit_SSD1306 and Adafruit_GFX libraries must be installed.
+  - Install these libraries before uploading:
+    - Adafruit GFX Library
+    - Adafruit SSD1306
+  - In Arduino IDE: Sketch -> Include Library -> Manage Libraries, then search for those names.
 */
 #include <Wire.h>
 #include <Adafruit_GFX.h>
