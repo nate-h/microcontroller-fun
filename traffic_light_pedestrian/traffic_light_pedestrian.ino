@@ -5,7 +5,7 @@
   - 5 LEDs
   - 5 resistors for the LEDs (220 ohm typical)
   - 1 pushbutton
-  - 1 piezo buzzer
+  - 1 passive 3-pin buzzer module
 
   Wiring:
   - Car red LED anode -> pin 8 through a resistor
@@ -16,11 +16,13 @@
   - All LED cathodes -> GND
   - Pushbutton one side -> pin 2
   - Pushbutton other side -> GND
-  - Buzzer positive -> pin 6
-  - Buzzer negative -> GND
+  - Buzzer module GND -> GND
+  - Buzzer module VCC -> 5V
+  - Buzzer module I/O -> pin 6
 
   Notes:
   - The button uses INPUT_PULLUP, so it reads pressed when connected to GND.
+  - This sketch assumes the buzzer module is passive, so the Arduino generates the tone.
   - Press the button while cars have green to request a walk cycle.
 */
 const int carRedPin = 8;
@@ -53,6 +55,18 @@ const unsigned long allStopTimeMs = 1000;
 const unsigned long walkTimeMs = 5000;
 const unsigned long flashIntervalMs = 300;
 
+void playBuzzer(unsigned int frequency) {
+  tone(buzzerPin, frequency);
+}
+
+void playBuzzer(unsigned int frequency, unsigned long durationMs) {
+  tone(buzzerPin, frequency, durationMs);
+}
+
+void stopBuzzer() {
+  noTone(buzzerPin);
+}
+
 bool buttonPressed() {
   return digitalRead(buttonPin) == LOW;
 }
@@ -79,38 +93,38 @@ void setState(LightState newState) {
 
 void enterCarsGo() {
   setLights(false, false, true, true, false);
-  noTone(buzzerPin);
+  stopBuzzer();
   pedestrianRequested = false;
   setState(CARS_GO);
 }
 
 void enterCarsSlow() {
   setLights(false, true, false, true, false);
-  noTone(buzzerPin);
+  stopBuzzer();
   setState(CARS_SLOW);
 }
 
 void enterAllStop1() {
   setLights(true, false, false, true, false);
-  noTone(buzzerPin);
+  stopBuzzer();
   setState(ALL_STOP_1);
 }
 
 void enterPedestriansGo() {
   setLights(true, false, false, false, true);
-  tone(buzzerPin, 880);
+  playBuzzer(880);
   setState(PEDESTRIANS_GO);
 }
 
 void enterPedestriansFlash() {
   setLights(true, false, false, false, true);
-  noTone(buzzerPin);
+  stopBuzzer();
   setState(PEDESTRIANS_FLASH);
 }
 
 void enterAllStop2() {
   setLights(true, false, false, true, false);
-  noTone(buzzerPin);
+  stopBuzzer();
   setState(ALL_STOP_2);
 }
 
@@ -154,9 +168,9 @@ void loop() {
 
     case PEDESTRIANS_GO:
       if ((elapsed / 250) % 2 == 0) {
-        tone(buzzerPin, 880);
+        playBuzzer(880);
       } else {
-        noTone(buzzerPin);
+        stopBuzzer();
       }
 
       if (elapsed >= walkTimeMs) {
@@ -167,9 +181,10 @@ void loop() {
     case PEDESTRIANS_FLASH:
       if ((elapsed / flashIntervalMs) % 2 == 0) {
         digitalWrite(pedGreenPin, HIGH);
-        tone(buzzerPin, 660, 80);
+        playBuzzer(660, 80);
       } else {
         digitalWrite(pedGreenPin, LOW);
+        stopBuzzer();
       }
 
       if (elapsed >= 3000) {

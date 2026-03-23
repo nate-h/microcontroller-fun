@@ -3,8 +3,8 @@
 
   Parts:
   - 1 ultrasonic distance sensor (such as HC-SR04)
-  - 5 LEDs
-  - 5 resistors for the LEDs (220 ohm typical)
+  - 6 LEDs
+  - 6 resistors for the LEDs (220 ohm typical)
 
   Wiring:
   - Ultrasonic VCC -> 5V
@@ -16,6 +16,7 @@
   - LED 3 anode -> pin 4 through a resistor
   - LED 4 anode -> pin 5 through a resistor
   - LED 5 anode -> pin 6 through a resistor
+  - LED 6 anode -> pin 7 through a resistor
   - All LED cathodes -> GND
 
   Notes:
@@ -24,7 +25,7 @@
 const int trigPin = 9;
 const int echoPin = 10;
 
-const int ledPins[5] = {2, 3, 4, 5, 6};
+const int ledPins[6] = {2, 3, 4, 5, 6, 7};
 
 long duration;
 float distance;
@@ -35,7 +36,7 @@ void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     pinMode(ledPins[i], OUTPUT);
   }
 }
@@ -70,11 +71,12 @@ void loop() {
 
   distance = constrain(distance, minDist, maxDist);
 
-  // Map to 0–5 LEDs
-  int numLEDs = map(distance, maxDist, minDist, 0, 5);
+  // Map to 0-6 LEDs
+  int numLEDs = map(distance, maxDist, minDist, 0, 6);
+  numLEDs = constrain(numLEDs, 0, 6);
 
   // Update LEDs
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     if (i < numLEDs) {
       digitalWrite(ledPins[i], HIGH);
     } else {
