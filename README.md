@@ -1,5 +1,7 @@
 # Microcontroller Fun
 
+![Arduino demo collage](demo_collage_1920x1080.jpg)
+
 A small collection of Arduino demos I built while learning and experimenting with basic inputs, outputs, sensors, sound, and displays.
 
 I started this repo with an Arduino Uno, and I want to eventually explore other microcontrollers as I keep learning.

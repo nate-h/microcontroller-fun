@@ -1,98 +1,129 @@
 /*
-  Joystick Servo Demo Setup
+  Joystick Servo and Motor Demo
 
   Parts:
   - 1 analog joystick module
-  - 1 servo motor
-  - 4 LEDs
-  - 4 resistors for the LEDs (220 ohm typical)
+  - 1 small servo motor
+  - 1 DC motor
+  - 1 H-bridge motor driver
 
   Wiring:
+  - ---
   - Joystick VCC -> 5V
   - Joystick GND -> GND
   - Joystick VRX -> A0
   - Joystick VRY -> A1
-  - Servo signal -> pin 9
-  - Servo power -> 5V
-  - Servo ground -> GND
-  - Left LED anode -> pin 5 through a resistor
-  - Right LED anode -> pin 6 through a resistor
-  - Up LED anode -> pin 3 through a resistor
-  - Down LED anode -> pin 11 through a resistor
-  - All LED cathodes -> GND
+  - ---
+  - Servo signal (white wire) -> pin 9
+  - Servo power (red wire) -> 5V
+  - Servo ground (black wire) -> GND
+  - ---
+  - L293D pin 1 (EN1,2) -> Arduino pin 5 for PWM speed control
+  - L293D pin 2 (1A) -> Arduino pin 7
+  - L293D pin 7 (2A) -> Arduino pin 8
+  - L293D pin 3 (1Y) -> one motor terminal
+  - L293D pin 6 (2Y) -> the other motor terminal
+  - L293D pin 8 (Vcc2) -> battery or external motor supply
+  - L293D pin 16 (Vcc1) -> 5V
+  - L293D pins 4, 5, 12, and 13 -> GND
+  - Arduino GND and motor supply GND must be connected together
 
   Notes:
-  - Open the Serial Monitor at 9600 baud to see joystick values and servo angle.
-  - Small servos may work from the board 5V pin; larger servos should use external power with shared GND.
+  - Left/right moves the servo.
+  - Up/down controls motor speed and direction through the H-bridge.
+  - This sketch does not use the joystick pushbutton, so the 10k resistor is not needed here.
+  - Powering the motor from the Arduino 5V pin is not recommended.
 */
 #include <Servo.h>
 
 const int pinVRX = A0;
 const int pinVRY = A1;
 
-// PWM LED pins (safe with servo)
-const int ledLeft = 5;
-const int ledRight = 6;
-const int ledUp = 3;
-const int ledDown = 11;
-
-// Servo
 const int servoPin = 9;
-Servo myServo;
+const int motorEnablePin = 5;
+const int motorIn1Pin = 7;
+const int motorIn2Pin = 8;
 
-int centerX = 512;
-int centerY = 512;
-const int deadzone = 50;
+const int centerX = 512;
+const int centerY = 512;
+const int deadzone = 60;
+
+Servo steeringServo;
+
+int applyDeadzone(int value, int center, int zone) {
+  int delta = value - center;
+
+  if (abs(delta) < zone) {
+    return 0;
+  }
+
+  return delta;
+}
+
+void setMotor(int signedSpeed) {
+  int pwm = constrain(abs(signedSpeed), 0, 255);
+
+  if (signedSpeed > 0) {
+    digitalWrite(motorIn1Pin, HIGH);
+    digitalWrite(motorIn2Pin, LOW);
+  } else if (signedSpeed < 0) {
+    digitalWrite(motorIn1Pin, LOW);
+    digitalWrite(motorIn2Pin, HIGH);
+  } else {
+    digitalWrite(motorIn1Pin, LOW);
+    digitalWrite(motorIn2Pin, LOW);
+  }
+
+  analogWrite(motorEnablePin, pwm);
+}
 
 void setup() {
   Serial.begin(9600);
 
-  pinMode(ledLeft, OUTPUT);
-  pinMode(ledRight, OUTPUT);
-  pinMode(ledUp, OUTPUT);
-  pinMode(ledDown, OUTPUT);
+  pinMode(motorEnablePin, OUTPUT);
+  pinMode(motorIn1Pin, OUTPUT);
+  pinMode(motorIn2Pin, OUTPUT);
 
-  myServo.attach(servoPin);
+  steeringServo.attach(servoPin);
+  steeringServo.write(90);
+
+  setMotor(0);
 }
 
 void loop() {
   int x = analogRead(pinVRX);
   int y = analogRead(pinVRY);
 
-  int dx = x - centerX;
-  int dy = centerY - y; // flip Y
+  int xDelta = applyDeadzone(x, centerX, deadzone);
+  int yDelta = applyDeadzone(y, centerY, deadzone);
 
-  if (abs(dx) < deadzone) dx = 0;
-  if (abs(dy) < deadzone) dy = 0;
+  int servoAngle = 90;
 
-  int leftVal  = dx < 0 ? map(-dx, 0, 512, 0, 255) : 0;
-  int rightVal = dx > 0 ? map(dx, 0, 512, 0, 255) : 0;
-  int upVal    = dy > 0 ? map(dy, 0, 512, 0, 255) : 0;
-  int downVal  = dy < 0 ? map(-dy, 0, 512, 0, 255) : 0;
+  if (xDelta != 0) {
+    servoAngle = map(x, 0, 1023, 0, 180);
+    servoAngle = constrain(servoAngle, 0, 180);
+  }
 
-  leftVal  = constrain(leftVal, 0, 255);
-  rightVal = constrain(rightVal, 0, 255);
-  upVal    = constrain(upVal, 0, 255);
-  downVal  = constrain(downVal, 0, 255);
+  steeringServo.write(servoAngle);
 
-  analogWrite(ledLeft, leftVal);
-  analogWrite(ledRight, rightVal);
-  analogWrite(ledUp, upVal);
-  analogWrite(ledDown, downVal);
+  // Most joystick modules read lower values when pushed up, so invert Y
+  // so pushing up means forward motor motion.
+  int motorSpeed = map(y, 0, 1023, 255, -255);
 
-  // Servo control (X axis)
-  int angle = map(x, 0, 1023, 0, 180);
-  angle = constrain(angle, 0, 180);
-  myServo.write(angle);
+  if (yDelta == 0) {
+    motorSpeed = 0;
+  }
 
-  Serial.print("X: "); Serial.print(x);
-  Serial.print(" | Servo: "); Serial.print(angle);
-  Serial.print(" || Y: "); Serial.print(y);
-  Serial.print(" || L: "); Serial.print(leftVal);
-  Serial.print(" R: "); Serial.print(rightVal);
-  Serial.print(" U: "); Serial.print(upVal);
-  Serial.print(" D: "); Serial.print(downVal);
-  Serial.println();
+  setMotor(motorSpeed);
+
+  Serial.print("X: ");
+  Serial.print(x);
+  Serial.print(" | Servo: ");
+  Serial.print(servoAngle);
+  Serial.print(" || Y: ");
+  Serial.print(y);
+  Serial.print(" | Motor: ");
+  Serial.println(motorSpeed);
 
   delay(20);
 }
